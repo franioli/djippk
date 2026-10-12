@@ -33,7 +33,7 @@ uv tool install 'djippk[plots]'                           # + matplotlib for the
 ```sh
 # 1. PPK of every flight folder under dji_m3e/, writes the .pos and _events.pos next to the drone RINEX
 djippk process dji_m3e/ \
-    --base base.26O --base-nav base.26P --base-pos-file base_position.csv --qc
+    --base base.26O --base-nav base.26P base.26B --base-pos-file base_position.csv --qc
 
 # 2. Match the images to the events and export the coordinates for Metashape
 djippk geotag dji_m3e/DJI_x_001/DJI_x_001_PPKOBS_events.pos images/DJI_x_001/

@@ -72,3 +72,12 @@ def test_process_without_mrk_writes_empty_events_and_flags_uncovered_flights(tmp
     late = write_rinex(tmp_path / "late.26O", "2026 09 06 12 30  0.0000000", "2026 09 06 13 00  0.0000000")
     assert main(["process", str(flight), "--base", str(late), *ok[4:]]) == 1  # base starts after the flight
     assert "not inside the base" in capsys.readouterr().err
+
+
+def test_several_base_nav_files_are_all_passed_on(tmp_path, capsys):
+    from djippk.cli import build_parser
+
+    a = build_parser().parse_args(
+        ["process", "dir", "--base", "b.obs", "--base-nav", "b.26P", "b.26B", "--base-pos", "46", "9", "2000"]
+    )
+    assert [str(p) for p in a.base_nav] == ["b.26P", "b.26B"] and [str(p) for p in a.paths] == ["dir"]

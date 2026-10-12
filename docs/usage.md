@@ -45,9 +45,9 @@ The `_events.pos` has the layout Emlid Studio writes, so tools that read those f
 
 ## 3. Commands
 
-### `djippk process PATH... --base OBS --base-nav NAV (--base-pos LAT LON H | --base-pos-file CSV)`
+### `djippk process PATH... --base OBS --base-nav NAV... (--base-pos LAT LON H | --base-pos-file CSV)`
 
-`PATH` are flight folders (searched recursively for `*_PPKOBS.obs`) or `.obs` files. For each flight it checks that
+`--base-nav` takes one or more files (the Reach writes GPS/mixed `.26P` and BeiDou `.26B`; pass both). `PATH` are flight folders (searched recursively for `*_PPKOBS.obs`) or `.obs` files. For each flight it checks that
 the rover observations lie inside the time span of the base, runs `rnx2rtkp`, writes `.pos`, `.conf` and
 `_events.pos` and prints the fix percentages and the photos that are not fixed or lie outside the trajectory.
 A failing flight is reported and the others continue; the exit code is 1 if any failed.

@@ -45,7 +45,7 @@ def _check_coverage(flight: Flight, base_span: tuple) -> str | None:
 def process_flight(
     flight: Flight,
     base: Path,
-    base_nav: Path,
+    base_nav: Sequence[Path],
     config: rtklib.RtkConfig,
     exe: str,
     do_qc: bool,
@@ -53,7 +53,7 @@ def process_flight(
     """PPK of one flight, then its events file; returns a one-line summary."""
     pos_path = Path(f"{flight.stem}.pos")
     config.write(Path(f"{flight.stem}.conf"))
-    rtklib.run_rnx2rtkp(flight.obs, base, [flight.nav, base_nav], config, pos_path, exe)
+    rtklib.run_rnx2rtkp(flight.obs, base, [flight.nav, *base_nav], config, pos_path, exe)
     pos = rtklib.read_pos(pos_path)
     q = pos["Q"].value_counts(normalize=True).mul(100).round(1).to_dict()
     msg = f"{pos_path.name}: {len(pos)} epochs, Q%={q}"
@@ -170,7 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--base", type=Path, required=True, help="base RINEX observation file"
     )
     sp.add_argument(
-        "--base-nav", type=Path, required=True, help="base RINEX navigation file"
+        "--base-nav",
+        type=Path,
+        nargs="+",
+        required=True,
+        help="base RINEX navigation file(s), e.g. GPS .26P plus BeiDou .26B",
     )
     sp.add_argument(
         "--base-pos",
