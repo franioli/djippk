@@ -55,28 +55,52 @@ def test_reference_file(tmp_path, ev):
     out = geotag.write_reference(ref, tmp_path / "ref.csv")
     lines = out.read_text().splitlines()
     assert lines[0] == "# label,lon,lat,alt,acc_E,acc_N,acc_h,Q"
-    assert lines[1].startswith("DJI_20260906140002_0001_V,9.0000")
+    assert lines[1].startswith("DJI_20260906140002_0001_V.JPG,9.0000")
+    stem = geotag.build_reference(img, ev, keep_ext=False)
+    assert stem["label"].iloc[0] == "DJI_20260906140002_0001_V"
     assert ref["acc_N"].min() == 0.03  # raw std 0.003 is floored
 
 
-@pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
-def test_exif_written_and_read_back(tmp_path, ev):
-    from PIL import Image
-
-    make_images(tmp_path, [2, 10, 36])
-    img = images.list_images(tmp_path)
-    for p in img["path"]:
-        Image.new("RGB", (8, 8)).save(p)
-    geotag.write_exif(list(img["path"]), ev)
+def read_tags(path: Path) -> dict:
     out = subprocess.run(
-        ["exiftool", "-n", "-j", "-GPSLatitude", "-GPSLongitude", "-GPSAltitude", "-XMP-drone-dji:AbsoluteAltitude",
-         "-XMP-drone-dji:RtkStdHgt", str(img["path"].iloc[2])],
+        ["exiftool", "-n", "-j", "-GPSLatitude", "-GPSAltitude", "-XMP-drone-dji:AbsoluteAltitude", "-XMP-drone-dji:RtkStdHgt", str(path)],
         capture_output=True, text=True,
     )  # fmt: skip
-    tags = json.loads(out.stdout)[0]
+    return json.loads(out.stdout)[0]
+
+
+@pytest.fixture
+def jpeg_folder(tmp_path):
+    from PIL import Image
+
+    folder = tmp_path / "imgs"
+    folder.mkdir()
+    make_images(folder, [2, 10, 36])
+    img = images.list_images(folder)
+    for p in img["path"]:
+        Image.new("RGB", (8, 8)).save(p)
+    return img
+
+
+@pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
+def test_exif_goes_to_copies_by_default(jpeg_folder, ev, tmp_path):
+    img, out = jpeg_folder, tmp_path / "tagged"
+    done = geotag.write_exif(list(img["path"]), ev, out)
+    assert [p.name for p in done] == img["name"].tolist()
+    tags = read_tags(out / img["name"].iloc[2])
     assert tags["GPSLatitude"] == pytest.approx(ev["lat"].iloc[2], abs=1e-8)
     assert tags["GPSAltitude"] == pytest.approx(ev["h"].iloc[2], abs=1e-3)
     assert tags["AbsoluteAltitude"] == pytest.approx(ev["h"].iloc[2], abs=1e-3)
     assert tags["RtkStdHgt"] == pytest.approx(0.008, abs=1e-5)
-    assert (tmp_path / (img["name"].iloc[0] + "_original")).exists()  # backup kept by default
-    assert np.isfinite(tags["GPSLongitude"])
+    assert "GPSLatitude" not in read_tags(img["path"].iloc[2])  # the input image is untouched
+    assert not list(out.glob("*_original")) and not list(img["path"].iloc[0].parent.glob("*_original"))
+
+
+@pytest.mark.skipif(shutil.which("exiftool") is None, reason="exiftool not installed")
+def test_exif_in_place_only_when_asked_and_without_backups(jpeg_folder, ev):
+    img = jpeg_folder
+    geotag.write_exif(list(img["path"]), ev, None)
+    assert read_tags(img["path"].iloc[0])["GPSLatitude"] == pytest.approx(ev["lat"].iloc[0], abs=1e-8)
+    assert not list(img["path"].iloc[0].parent.glob("*_original"))
+    with pytest.raises(ValueError, match="is the image folder"):
+        geotag.write_exif(list(img["path"]), ev, img["path"].iloc[0].parent)

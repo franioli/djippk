@@ -70,7 +70,7 @@ Rebuilds the events file from an existing `.pos`, e.g. after editing the `.pos` 
 (`--no-offsets`). Positions are linearly interpolated at the exposure times; Q is the worse of the two neighbouring
 epochs, so a photo between a fixed and a float epoch is marked float.
 
-### `djippk geotag EVENTS IMAGES [-o OUT] [--exif] [--no-backup] [--suffix V] [--min-acc 0.03] [--keep-ext]`
+### `djippk geotag EVENTS IMAGES [-o OUT] [--exif [--exif-out DIR | --overwrite]] [--suffix V] [--min-acc 0.03] [--no-ext]`
 
 Matches `DJI_<time>_<NNNN>_V.JPG` images to the events (image N to event N), after checking:
 
@@ -79,12 +79,14 @@ Matches `DJI_<time>_<NNNN>_V.JPG` images to the events (image N to event N), aft
    consecutive photos in the file names equal those of the events within 1.5 s.
 
 It then writes `<IMAGES>/<flight>_PPKOBS_metashape.csv` with columns `label,lon,lat,alt,acc_E,acc_N,acc_h,Q`
-(geographic degrees, ellipsoidal metres; the accuracies are the solution std floored at `--min-acc`).
+(`label` is the full file name with extension, which Metashape needs to match the cameras; `--no-ext` drops it. Geographic degrees, ellipsoidal metres; the accuracies are the solution std floored at `--min-acc`).
 
-`--exif` additionally writes, with one exiftool run, the EXIF GPS latitude, longitude and altitude and the DJI XMP
-`GPSLatitude`, `GPSLongitude`, `AbsoluteAltitude`, `RtkStdLat`, `RtkStdLon`, `RtkStdHgt` (the tags Emlid Studio
-writes). exiftool keeps `<image>_original` copies unless `--no-backup`. `RtkFlag` and everything else is left as is.
-Writing positions into the images is irreversible without those backups.
+`--exif` additionally writes the EXIF GPS latitude, longitude and altitude and the DJI XMP `GPSLatitude`, `GPSLongitude`,
+`AbsoluteAltitude`, `RtkStdLat`, `RtkStdLon`, `RtkStdHgt` (the tags Emlid Studio writes) with one exiftool run.
+`RtkFlag` and everything else is left as is. By default the images are **copied** to `<IMAGES>/tagged/` (or the
+folder given with `--exif-out`, same file names) and only the copies are tagged, so the inputs are never modified.
+`--overwrite` tags the input images in place instead; it is off by default, cannot be undone, and no `*_original`
+backups are made in either mode. The copies need as much disk space as the images.
 
 ### `djippk qc POS [MRK] [--out DIR]`
 

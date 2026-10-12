@@ -10,9 +10,10 @@ import pandas as pd
 
 
 def build_reference(
-    img: pd.DataFrame, ev: pd.DataFrame, min_acc: float = 0.03, keep_ext: bool = False
+    img: pd.DataFrame, ev: pd.DataFrame, min_acc: float = 0.03, keep_ext: bool = True
 ) -> pd.DataFrame:
-    """One row per image: label, lon, lat, alt (ellipsoidal), accuracies (floored at min_acc, m) and Q."""
+    """One row per image: label (file name, with extension unless `keep_ext` is False), lon, lat, alt (ellipsoidal),
+    accuracies (floored at min_acc, m) and Q."""
     return pd.DataFrame({
         "label": img["name"] if keep_ext else img["name"].str.rsplit(".", n=1).str[0],
         "lon": ev["lon"].to_numpy(),
@@ -55,24 +56,31 @@ def exiftool_args(path: Path, r: pd.Series) -> list[str]:
     ]
 
 
-def write_exif(paths: list[Path], ev: pd.DataFrame, backup: bool = True) -> None:
-    """Write the event positions into the images with one exiftool run.
+def write_exif(paths: list[Path], ev: pd.DataFrame, out_dir: Path | None = None) -> list[Path]:
+    """Write the event positions into images with one exiftool run, and return the tagged files.
 
     Tags: EXIF GPS latitude, longitude, altitude (ellipsoidal height) and the DJI XMP position and RTK std tags,
-    the same ones Emlid Studio writes. With `backup`, exiftool keeps `<image>_original` copies.
+    the same ones Emlid Studio writes. With `out_dir` the images are first copied there (same file names) and
+    only the copies are tagged; with `out_dir=None` the input images are modified in place. No `*_original`
+    backups are created.
     """
     exe = shutil.which("exiftool")
     if exe is None:
         raise FileNotFoundError(
             "exiftool not found on PATH; it is needed to write image tags (https://exiftool.org)"
         )
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        if out_dir.resolve() == paths[0].resolve().parent:
+            raise ValueError(f"{out_dir} is the image folder: choose another folder, or overwrite the images explicitly")
+        targets = [Path(shutil.copy2(p, out_dir / p.name)) for p in paths]
+    else:
+        targets = list(paths)
+    # exiftool options go in every command: -common_args would apply to the last command only
+    opts = ["-n", "-P", "-m", "-overwrite_original"]
     lines: list[str] = []
-    for path, (_, r) in zip(paths, ev.iterrows()):
-        lines += ([] if not lines else ["-execute"]) + exiftool_args(path, r)
-    # options shared by all the per-image commands go after -common_args, at the end of the argument file
-    lines += ["-common_args", "-n", "-P", "-m"] + (
-        [] if backup else ["-overwrite_original"]
-    )
+    for path, (_, r) in zip(targets, ev.iterrows()):
+        lines += ([] if not lines else ["-execute"]) + opts + exiftool_args(path, r)
     with tempfile.TemporaryDirectory() as tmp:
         argfile = Path(tmp) / "args.txt"
         argfile.write_text("\n".join(lines) + "\n")
@@ -81,3 +89,4 @@ def write_exif(paths: list[Path], ev: pd.DataFrame, backup: bool = True) -> None
         raise RuntimeError(
             f"exiftool failed: {(proc.stderr or proc.stdout).strip()[-500:]}"
         )
+    return targets

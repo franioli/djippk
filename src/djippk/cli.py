@@ -107,7 +107,24 @@ def cmd_events(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
     return 0
 
 
-def cmd_geotag(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
+def _events_file(path: Path) -> Path:
+    """The events file itself, or the single `*_events.pos` inside a flight folder."""
+    if path.is_dir():
+        found = sorted(path.glob("*_events.pos"))
+        if len(found) != 1:
+            raise ValueError(f"{path} is a folder with {len(found)} *_events.pos files; give the file itself")
+        return found[0]
+    return path
+
+
+def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if (a.exif_out or a.overwrite) and not a.exif:
+        parser.error("--exif-out and --overwrite need --exif")
+    if a.exif_out and a.overwrite:
+        parser.error("use either --exif-out or --overwrite, not both")
+    if not a.images.is_dir():
+        raise ValueError(f"{a.images} is not a folder; usage: djippk geotag <events.pos> <image folder>")
+    a.events = _events_file(a.events)
     ev = rtklib.read_pos(a.events)
     img = images.list_images(a.images, a.suffix)
     exposure = images.exposure_times(list(img["path"])) if len(img) else None
@@ -122,7 +139,7 @@ def cmd_geotag(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
         if exposure is not None
         else "file-name intervals (no XMP exposure time)"
     )
-    ref = geotag.build_reference(img, ev, a.min_acc, a.keep_ext)
+    ref = geotag.build_reference(img, ev, a.min_acc, not a.no_ext)
     out = a.out or Path(a.images) / (
         Path(a.events).stem.removesuffix("_events") + "_metashape.csv"
     )
@@ -137,11 +154,10 @@ def cmd_geotag(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
             )
         )
     if a.exif:
-        geotag.write_exif(list(img["path"]), ev, backup=not a.no_backup)
-        print(
-            f"GPS tags written into {len(img)} images"
-            + ("" if a.no_backup else " (originals kept as *_original)")
-        )
+        out_dir = None if a.overwrite else (a.exif_out or Path(a.images) / "tagged")
+        geotag.write_exif(list(img["path"]), ev, out_dir)
+        where = "the input images (overwritten)" if a.overwrite else f"copies in {out_dir}"
+        print(f"GPS tags written into {len(img)} images: {where}")
     return 0
 
 
@@ -240,9 +256,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="also write the coordinates into the image EXIF/XMP (needs exiftool)",
     )
     sp.add_argument(
-        "--no-backup",
+        "--exif-out",
+        type=Path,
+        help="with --exif: folder for the tagged copies (default <images>/tagged)",
+    )
+    sp.add_argument(
+        "--overwrite",
         action="store_true",
-        help="with --exif: do not keep *_original copies",
+        help="with --exif: tag the input images in place instead of writing copies (off by default)",
     )
     sp.add_argument(
         "--suffix", default="V", help="image type letter in the file name (default V)"
@@ -254,7 +275,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="floor for the accuracies [m] (default 0.03)",
     )
     sp.add_argument(
-        "--keep-ext", action="store_true", help="keep the file extension in the label"
+        "--no-ext", action="store_true", help="drop the file extension from the label (default: full file name)"
     )
     sp.set_defaults(func=cmd_geotag)
 

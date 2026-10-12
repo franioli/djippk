@@ -38,7 +38,8 @@ djippk process dji_m3e/ \
 # 2. Match the images to the events and export the coordinates for Metashape
 djippk geotag dji_m3e/DJI_x_001/DJI_x_001_PPKOBS_events.pos images/DJI_x_001/
 
-# 2b. ... and also write them into the image EXIF/XMP (exiftool keeps *_original backups)
+# 2b. ... and also write them into the EXIF/XMP of copies of the images in <images>/tagged/
+#     (--exif-out DIR to choose the folder, --overwrite to tag the input images in place)
 djippk geotag <events.pos> <images> --exif
 ```
 
