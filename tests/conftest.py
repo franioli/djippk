@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from djippk.rtklib import GPS_EPOCH
+from gnsskit import GPS_EPOCH
 
 T0 = pd.Timestamp("2026-09-06 12:00:00")  # GPST
 T0_GPS_S = (T0 - GPS_EPOCH).total_seconds()

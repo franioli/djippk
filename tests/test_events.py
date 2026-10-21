@@ -1,9 +1,11 @@
-import numpy as np
 import pandas as pd
 import pytest
 
-from djippk import events, mrk, rtklib
-from djippk.geo import enu_diff
+from gnsskit import read_header
+from gnsskit.geodesy import enu_diff
+
+from djippk import events, mrk
+from djippk.pos import read_trajectory
 
 
 def test_read_mrk(mrk_file):
@@ -14,16 +16,8 @@ def test_read_mrk(mrk_file):
     assert m["gps_s"].iloc[1] - m["gps_s"].iloc[0] == pytest.approx(7.5)
 
 
-def test_interpolation_between_epochs(pos_file):
-    pos = rtklib.read_pos(pos_file)
-    ev = events.interpolate(pos, np.array([pos["gps_s"].iloc[0] + 2.5]))
-    assert ev["lat"].iloc[0] == pytest.approx(46.0 + 2.5e-6, abs=1e-9)
-    assert ev["h"].iloc[0] == pytest.approx(2000.25, abs=1e-4)
-    assert ev["Q"].iloc[0] == 1
-
-
 def test_offsets_follow_the_emlid_convention(pos_file, mrk_file):
-    pos, m = rtklib.read_pos(pos_file), mrk.read_mrk(mrk_file)
+    pos, m = read_trajectory(pos_file), mrk.read_mrk(mrk_file)
     bare, _ = events.build_events(pos, m, offsets=False)
     shifted, _ = events.build_events(pos, m, offsets=True)
     e, n, u = enu_diff(shifted["lat"], shifted["lon"], shifted["h"], bare["lat"], bare["lon"], bare["h"]).T
@@ -32,24 +26,24 @@ def test_offsets_follow_the_emlid_convention(pos_file, mrk_file):
 
 def test_written_times_are_rounded_not_truncated(pos_file, mrk_file, tmp_path):
     """Photo 3 is at 35.9996 s after T0: it must print as :36.000, not :35.000."""
-    pos, m = rtklib.read_pos(pos_file), mrk.read_mrk(mrk_file)
+    pos, m = read_trajectory(pos_file), mrk.read_mrk(mrk_file)
     ev, skipped = events.build_events(pos, m)
-    out = events.write_events(tmp_path / "e.pos", ev, rtklib.read_header(pos_file), "x")
+    out = events.write_events(tmp_path / "e.pos", ev, read_header(pos_file), "x")
     last = out.read_text().splitlines()[-1]
     assert last.startswith("2026/09/06 12:00:36.000") and not skipped
 
 
 def test_events_file_round_trip(pos_file, mrk_file, tmp_path):
-    pos, m = rtklib.read_pos(pos_file), mrk.read_mrk(mrk_file)
+    pos, m = read_trajectory(pos_file), mrk.read_mrk(mrk_file)
     ev, _ = events.build_events(pos, m)
-    out = events.write_events(tmp_path / "e.pos", ev, rtklib.read_header(pos_file), "x")
-    back = rtklib.read_pos(out)
+    out = events.write_events(tmp_path / "e.pos", ev, read_header(pos_file), "x")
+    back = read_trajectory(out)
     assert len(back) == 3
     assert back["gps_s"].to_numpy() == pytest.approx(ev["gps_s"].to_numpy(), abs=1e-3)
 
 
 def test_photos_outside_the_trajectory_are_reported(pos_file):
-    pos = rtklib.read_pos(pos_file)
+    pos = read_trajectory(pos_file)
     m = pd.DataFrame({"n": [1, 2], "gps_s": [pos["gps_s"].iloc[0] + 5, pos["gps_s"].iloc[-1] + 5],
                       "off_n": 0.0, "off_e": 0.0, "off_v": 0.0})  # fmt: skip
     ev, skipped = events.build_events(pos, m)
@@ -60,4 +54,4 @@ def test_header_only_pos_gives_a_clear_error(tmp_path):
     p = tmp_path / "empty_events.pos"
     events.write_empty_events(p, ["% program   : x", "%  GPST latitude(deg)"])
     with pytest.raises(ValueError, match="no data lines"):
-        rtklib.read_pos(p)
+        read_trajectory(p)

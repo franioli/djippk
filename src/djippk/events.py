@@ -9,32 +9,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from djippk.geo import radii
-from djippk.rtklib import GPS_EPOCH
-
-INTERP = ["lat", "lon", "h", "sdn", "sde", "sdu", "sdne", "sdeu", "sdun"]
-
-
-def interpolate(pos: pd.DataFrame, gps_s: np.ndarray) -> pd.DataFrame:
-    """Linear interpolation of the trajectory at the given times.
-
-    Q is the worse of the two neighbouring epochs, ns the smaller. Times outside the trajectory are not allowed.
-    """
-    t = pos["gps_s"].to_numpy()
-    idx = np.searchsorted(t, gps_s).clip(1, len(pos) - 1)
-    lo, hi = idx - 1, idx
-    out = pd.DataFrame({c: np.interp(gps_s, t, pos[c]) for c in INTERP})
-    out["Q"] = np.maximum(pos["Q"].to_numpy()[lo], pos["Q"].to_numpy()[hi])
-    out["ns"] = np.minimum(pos["ns"].to_numpy()[lo], pos["ns"].to_numpy()[hi])
-    out["ratio"] = np.where(
-        pos["Q"].to_numpy()[lo] == 1,
-        pos["ratio"].to_numpy()[lo],
-        pos["ratio"].to_numpy()[hi],
-    )
-    out["age"] = 0.0
-    out["gps_s"] = gps_s
-    out["t"] = GPS_EPOCH + pd.to_timedelta(gps_s, unit="s")
-    return out
+from gnsskit.geodesy import radii
+from gnsskit.trajectory import interpolate
 
 
 def apply_offsets(

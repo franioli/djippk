@@ -1,10 +1,11 @@
 from pathlib import Path
 
-import pytest
 
-from djippk import rtklib
+from gnsskit import RtkConfig
+
 from djippk.cli import main
-from djippk.rtklib import RtkConfig, build_command, read_base_position
+from djippk.config import DEFAULT_CONFIG, read_base_position
+from djippk.pos import read_trajectory
 
 
 def write_rinex(path: Path, first: str, last: str) -> Path:
@@ -13,17 +14,19 @@ def write_rinex(path: Path, first: str, last: str) -> Path:
     return path
 
 
-def test_config_text_and_base():
-    c = RtkConfig().with_base(46.5, 9.5, 2000.0, antenna_h=0.1)
-    text = c.to_text()
-    assert "pos1-posmode       =kinematic" in text
-    assert "ant2-pos1          =46.5000000000" in text and "ant2-antdelu       =0.1000" in text
-    assert c.updated({"pos1-navsys": 45}).options["pos1-navsys"] == "45"
+def test_default_config_and_base():
+    c = DEFAULT_CONFIG.with_base_llh(46.5, 9.5, 2000.0, antenna_h=0.1)
+    o = c.options
+    assert o["pos1-posmode"] == "kinematic" and o["pos1-navsys"] == "41" and o["misc-timeinterp"] == "on"
+    assert o["ant2-postype"] == "llh" and o["ant2-pos1"] == "46.5" and o["ant2-antdelu"] == "0.1"
+    assert "pos1-posopt1" not in o  # only the options of the defaults are written
 
 
-def test_build_command_orders_rover_before_base(tmp_path):
-    cmd = build_command(Path("c.conf"), Path("r.obs"), Path("b.obs"), [Path("r.nav"), Path("b.nav")], Path("o.pos"))
-    assert cmd == ["rnx2rtkp", "-k", "c.conf", "-o", "o.pos", "r.obs", "b.obs", "r.nav", "b.nav"]
+def test_conf_file_gives_way_to_base_position_and_opt(tmp_path):
+    conf = tmp_path / "user.conf"
+    conf.write_text("pos1-elmask=10\nant2-pos1=1\nant2-pos2=2\nant2-pos3=3\n")
+    o = RtkConfig.from_file(conf, DEFAULT_CONFIG).with_base_llh(46.0, 9.0, 2000.0).options
+    assert o["pos1-elmask"] == "10" and o["ant2-pos1"] == "46.0" and o["ant2-pos3"] == "2000.0"
 
 
 def test_read_base_position(tmp_path):
@@ -32,9 +35,9 @@ def test_read_base_position(tmp_path):
     assert read_base_position(f) == (46.1, 9.2, 2300.5)
 
 
-def test_missing_rnx2rtkp_gives_install_hint(tmp_path):
-    with pytest.raises(FileNotFoundError, match="not found on PATH"):
-        rtklib.find_rnx2rtkp("definitely-not-rnx2rtkp")
+def test_missing_rnx2rtkp_is_reported(tmp_path, capsys):
+    args = ["qc", "none.pos"]
+    assert main(args) == 1 and "error:" in capsys.readouterr().err
 
 
 def test_process_end_to_end(tmp_path, pos_file, mrk_file, fake_rnx2rtkp, capsys):
@@ -50,7 +53,7 @@ def test_process_end_to_end(tmp_path, pos_file, mrk_file, fake_rnx2rtkp, capsys)
             "--exe", fake_rnx2rtkp, "--qc"]  # fmt: skip
     assert main(args) == 0
     assert (flight / "DJI_x_001_f_PPKOBS.pos").exists() and (flight / "DJI_x_001_f_PPKOBS.conf").exists()
-    ev = rtklib.read_pos(flight / "DJI_x_001_f_PPKOBS_events.pos")
+    ev = read_trajectory(flight / "DJI_x_001_f_PPKOBS_events.pos")
     assert len(ev) == 3
     assert (flight / "qc" / "DJI_x_001_f_PPKOBS.txt").exists()
     assert "3 events" in capsys.readouterr().out

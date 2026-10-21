@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from djippk.geo import enu_diff
+from gnsskit.geodesy import enu_diff
 
 Q_NAMES = {1: "fix", 2: "float", 5: "single"}
 

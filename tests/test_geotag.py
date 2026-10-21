@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from djippk import events, geotag, images, mrk, rtklib
+from djippk import events, geotag, images, mrk
+from djippk.pos import read_trajectory
 
 
 def make_images(folder: Path, offsets_s: list[int]) -> None:
@@ -19,7 +20,7 @@ def make_images(folder: Path, offsets_s: list[int]) -> None:
 
 @pytest.fixture
 def ev(pos_file, mrk_file):
-    return events.build_events(rtklib.read_pos(pos_file), mrk.read_mrk(mrk_file))[0]
+    return events.build_events(read_trajectory(pos_file), mrk.read_mrk(mrk_file))[0]
 
 
 def test_list_images_and_match(tmp_path, ev):

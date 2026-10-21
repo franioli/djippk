@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from djippk.rtklib import GPS_EPOCH
+from gnsskit import GPS_EPOCH
 
 IMG_RE = re.compile(r"^DJI_(\d{14})_(\d{4})_([A-Z])\.(jpe?g|dng)$", re.IGNORECASE)
 NAME_TOL_S = 1.5  # file names have 1 s resolution

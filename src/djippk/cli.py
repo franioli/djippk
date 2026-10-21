@@ -7,9 +7,13 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from djippk import __version__, events, geotag, images, qc, rtklib
+from gnsskit import RtkConfig, read_header, rinex_span, run_rnx2rtkp
+
+from djippk import __version__, events, geotag, images, qc
+from djippk.config import DEFAULT_CONFIG, read_base_position
 from djippk.flight import Flight, find_flights
 from djippk.mrk import read_mrk
+from djippk.pos import read_trajectory
 
 
 def _key_value(s: str) -> tuple[str, str]:
@@ -21,22 +25,22 @@ def _key_value(s: str) -> tuple[str, str]:
 
 def _rtk_config(
     a: argparse.Namespace, parser: argparse.ArgumentParser
-) -> rtklib.RtkConfig:
-    config = rtklib.RtkConfig.from_file(a.conf) if a.conf else rtklib.RtkConfig()
+) -> RtkConfig:
+    config = RtkConfig.from_file(a.conf, DEFAULT_CONFIG) if a.conf else DEFAULT_CONFIG
     if a.base_pos_file:
-        lat, lon, h = rtklib.read_base_position(a.base_pos_file)
+        lat, lon, h = read_base_position(a.base_pos_file)
     elif a.base_pos:
         lat, lon, h = a.base_pos
     else:
         parser.error(
             "base position missing: use --base-pos LAT LON H or --base-pos-file CSV"
         )
-    return config.with_base(lat, lon, h, a.base_ant_h).updated(dict(a.opt))
+    return config.with_base_llh(lat, lon, h, a.base_ant_h).with_options(dict(a.opt))
 
 
 def _check_coverage(flight: Flight, base_span: tuple) -> str | None:
     """Message if the rover observations are not inside the base time span, else None."""
-    start, end = rtklib.rinex_span(flight.obs)
+    start, end = rinex_span(flight.obs)
     if start < base_span[0] or end > base_span[1]:
         return f"rover {start} - {end} GPST is not inside the base {base_span[0]} - {base_span[1]}"
     return None
@@ -46,27 +50,25 @@ def process_flight(
     flight: Flight,
     base: Path,
     base_nav: Sequence[Path],
-    config: rtklib.RtkConfig,
+    config: RtkConfig,
     exe: str,
     do_qc: bool,
 ) -> str:
     """PPK of one flight, then its events file; returns a one-line summary."""
     pos_path = Path(f"{flight.stem}.pos")
     config.write(Path(f"{flight.stem}.conf"))
-    rtklib.run_rnx2rtkp(flight.obs, base, [flight.nav, *base_nav], config, pos_path, exe)
-    pos = rtklib.read_pos(pos_path)
+    run_rnx2rtkp(flight.obs, base, [flight.nav, *base_nav], config, pos_path, exe=exe)
+    pos = read_trajectory(pos_path)
     q = pos["Q"].value_counts(normalize=True).mul(100).round(1).to_dict()
     msg = f"{pos_path.name}: {len(pos)} epochs, Q%={q}"
     events_path = Path(f"{flight.stem}_events.pos")
     mrk = read_mrk(flight.mrk) if flight.mrk else None
     if mrk is None:
-        events.write_empty_events(events_path, rtklib.read_header(pos_path))
+        events.write_empty_events(events_path, read_header(pos_path))
         msg += "; no MRK: empty events file"
     else:
         ev, skipped = events.build_events(pos, mrk)
-        events.write_events(
-            events_path, ev, rtklib.read_header(pos_path), pos_path.name
-        )
+        events.write_events(events_path, ev, read_header(pos_path), pos_path.name)
         nonfix = ev.loc[ev["Q"] != 1, "n"].tolist()
         msg += f"; {len(ev)} events"
         if skipped:
@@ -81,7 +83,7 @@ def process_flight(
 def cmd_process(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     config = _rtk_config(a, parser)
     flights = find_flights(a.paths)
-    base_span = rtklib.rinex_span(a.base)
+    base_span = rinex_span(a.base)
     failed = 0
     for fl in flights:
         print(f"== {fl.obs.name}")
@@ -97,10 +99,10 @@ def cmd_process(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
 
 def cmd_events(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
-    pos = rtklib.read_pos(a.pos)
+    pos = read_trajectory(a.pos)
     ev, skipped = events.build_events(pos, read_mrk(a.mrk), offsets=not a.no_offsets)
     out = a.out or Path(a.pos).with_name(Path(a.pos).stem + "_events.pos")
-    events.write_events(out, ev, rtklib.read_header(a.pos), Path(a.pos).name)
+    events.write_events(out, ev, read_header(a.pos), Path(a.pos).name)
     print(f"{len(ev)} events written to {out}")
     if skipped:
         print(f"warning: photos outside the trajectory, skipped: {skipped}")
@@ -125,7 +127,7 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if not a.images.is_dir():
         raise ValueError(f"{a.images} is not a folder; usage: djippk geotag <events.pos> <image folder>")
     a.events = _events_file(a.events)
-    ev = rtklib.read_pos(a.events)
+    ev = read_trajectory(a.events)
     img = images.list_images(a.images, a.suffix)
     exposure = images.exposure_times(list(img["path"])) if len(img) else None
     problems = images.check_match(img, ev, exposure)
@@ -162,7 +164,7 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
 
 def cmd_qc(a: argparse.Namespace, _: argparse.ArgumentParser) -> int:
-    pos = rtklib.read_pos(a.pos)
+    pos = read_trajectory(a.pos)
     print(qc.run_qc(pos, read_mrk(a.mrk) if a.mrk else None, a.out, Path(a.pos).stem))
     return 0
 
