@@ -23,6 +23,10 @@ trajectory against the same base removes it.
 Requires Python >= 3.10, RTKLIB's `rnx2rtkp` (build the [demo5 fork](https://github.com/rtklibexplorer/RTKLIB),
 developed with `ver.EX 2.5.1`) and, only for `--exif`, [exiftool](https://exiftool.org).
 
+djippk depends on [**gnsskit**](https://github.com/franioli/gnsskit), which provides the RTKLIB configuration,
+the `rnx2rtkp` runner, the `.pos` reader, RINEX helpers and the geodetic functions. It is installed
+automatically, pinned to a release tag in `pyproject.toml`.
+
 ```sh
 uv tool install git+https://github.com/franioli/djippk    # or, from a clone: uv sync && uv run djippk --help
 uv tool install 'djippk[plots]'                           # + matplotlib for the QC plots
@@ -60,6 +64,7 @@ troubleshooting.
 
 ```sh
 uv sync && uv run pytest
+uv run --with-editable ../gnsskit pytest   # same, against a local clone of gnsskit
 ```
 
 The tests use small synthetic flights and a fake `rnx2rtkp`; they need no survey data.

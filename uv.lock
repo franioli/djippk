@@ -279,7 +279,7 @@ wheels = [
 
 [[package]]
 name = "djippk"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "gnsskit" },
@@ -306,7 +306,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gnsskit", git = "https://github.com/franioli/gnsskit?rev=v0.1.0" },
+    { name = "gnsskit", git = "https://github.com/franioli/gnsskit?rev=v0.2.0" },
     { name = "matplotlib", marker = "extra == 'plots'" },
     { name = "numpy" },
     { name = "pandas", specifier = ">=2" },
@@ -486,8 +486,8 @@ wheels = [
 
 [[package]]
 name = "gnsskit"
-version = "0.1.0"
-source = { git = "https://github.com/franioli/gnsskit?rev=v0.1.0#d4e334fd0e7f6c1d023be0b9f75260fdd639a2e4" }
+version = "0.2.0"
+source = { git = "https://github.com/franioli/gnsskit?rev=v0.2.0#9a20f03218613076b690a1ff4ea054b7acc2c012" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },

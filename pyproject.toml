@@ -1,6 +1,6 @@
 [project]
 name = "djippk"
-version = "0.1.0"
+version = "0.2.0"
 description = "PPK of DJI RTK drone flights with RTKLIB: trajectory, per-photo positions and image geotagging"
 readme = "README.md"
 license = "MIT"
@@ -18,7 +18,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "pandas>=2",
-    "gnsskit @ git+https://github.com/franioli/gnsskit@v0.1.0",
+    "gnsskit @ git+https://github.com/franioli/gnsskit@v0.2.0",
 ]
 
 [project.optional-dependencies]
