@@ -9,7 +9,13 @@ from gnsskit import RtkConfig, read_header, rinex_span, run_rnx2rtkp
 
 from djippk import __version__, events, geotag, images, qc
 from djippk.config import DEFAULT_CONFIG
-from djippk.io import Flight, find_flights, read_base_position, read_mrk, read_trajectory
+from djippk.io import (
+    Flight,
+    find_flights,
+    read_base_position,
+    read_mrk,
+    read_trajectory,
+)
 
 
 def _key_value(s: str) -> tuple[str, str]:
@@ -19,12 +25,12 @@ def _key_value(s: str) -> tuple[str, str]:
     return k.strip(), v.strip()
 
 
-def _rtk_config(
-    a: argparse.Namespace, parser: argparse.ArgumentParser
-) -> RtkConfig:
+def _rtk_config(a: argparse.Namespace, parser: argparse.ArgumentParser) -> RtkConfig:
     config = RtkConfig.from_file(a.conf, DEFAULT_CONFIG) if a.conf else DEFAULT_CONFIG
     if a.base_pos_file:
-        config = config.with_base_llh(*read_base_position(a.base_pos_file), a.base_ant_h)
+        config = config.with_base_llh(
+            *read_base_position(a.base_pos_file), a.base_ant_h
+        )
     elif a.base_pos:
         config = config.with_base_llh(*a.base_pos, a.base_ant_h)
     if not config.has_base_position:
@@ -107,7 +113,9 @@ def _events_file(path: Path) -> Path:
     if path.is_dir():
         found = sorted(path.glob("*_events.pos"))
         if len(found) != 1:
-            raise ValueError(f"{path} is a folder with {len(found)} *_events.pos files; give the file itself")
+            raise ValueError(
+                f"{path} is a folder with {len(found)} *_events.pos files; give the file itself"
+            )
         return found[0]
     return path
 
@@ -118,7 +126,9 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if a.exif_out and a.overwrite:
         parser.error("use either --exif-out or --overwrite, not both")
     if not a.images.is_dir():
-        raise ValueError(f"{a.images} is not a folder; usage: djippk geotag <events.pos> <image folder>")
+        raise ValueError(
+            f"{a.images} is not a folder; usage: djippk geotag <events.pos> <image folder>"
+        )
     events_file = _events_file(a.events)
     ev = read_trajectory(events_file)
     img = images.list_images(a.images, a.suffix)
@@ -151,7 +161,9 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     if a.exif:
         out_dir = None if a.overwrite else (a.exif_out or Path(a.images) / "tagged")
         geotag.write_exif(list(img["path"]), ev, out_dir)
-        where = "the input images (overwritten)" if a.overwrite else f"copies in {out_dir}"
+        where = (
+            "the input images (overwritten)" if a.overwrite else f"copies in {out_dir}"
+        )
         print(f"GPS tags written into {len(img)} images: {where}")
     return 0
 
@@ -270,7 +282,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="floor for the accuracies [m] (default 0.03)",
     )
     sp.add_argument(
-        "--no-ext", action="store_true", help="drop the file extension from the label (default: full file name)"
+        "--no-ext",
+        action="store_true",
+        help="drop the file extension from the label (default: full file name)",
     )
     sp.set_defaults(func=cmd_geotag)
 
@@ -282,13 +296,3 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--out", type=Path, default=Path("qc"))
     sp.set_defaults(func=cmd_qc)
     return p
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
-    a = parser.parse_args(argv)
-    try:
-        return a.func(a, parser)
-    except (FileNotFoundError, ValueError, RuntimeError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
