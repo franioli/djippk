@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from gnsskit import GPS_EPOCH
+from gnsskit.timesys import gps_seconds
 
 IMG_RE = re.compile(r"^DJI_(\d{14})_(\d{4})_([A-Z])\.(jpe?g|dng)$", re.IGNORECASE)
 NAME_TOL_S = 1.5  # file names have 1 s resolution
@@ -60,7 +60,7 @@ def exposure_times(paths: list[Path]) -> np.ndarray | None:
     if any(v is None for v in values):
         return None
     t = pd.to_datetime(pd.Series(values), format="%Y:%m:%d %H:%M:%S.%f")
-    return ((t - GPS_EPOCH).dt.total_seconds()).to_numpy()
+    return gps_seconds(t).to_numpy()
 
 
 def check_match(

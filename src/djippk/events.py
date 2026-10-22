@@ -66,8 +66,3 @@ def write_events(path: Path, ev: pd.DataFrame, header: list[str], source: str) -
     path.write_text("\n".join(lines) + "\n")
     return path
 
-
-def write_empty_events(path: Path, header: list[str]) -> Path:
-    """Header-only events file, for flights without MRK."""
-    path.write_text("\n".join(header) + "\n")
-    return path

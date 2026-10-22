@@ -4,8 +4,8 @@ from pathlib import Path
 from gnsskit import RtkConfig
 
 from djippk.cli import main
-from djippk.config import DEFAULT_CONFIG, read_base_position
-from djippk.pos import read_trajectory
+from djippk.config import DEFAULT_CONFIG
+from djippk.io import read_base_position, read_trajectory
 
 
 def write_rinex(path: Path, first: str, last: str) -> Path:

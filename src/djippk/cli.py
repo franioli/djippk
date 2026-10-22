@@ -1,7 +1,5 @@
 """Command line interface: process, events, geotag, qc."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from collections.abc import Sequence
@@ -10,10 +8,8 @@ from pathlib import Path
 from gnsskit import RtkConfig, read_header, rinex_span, run_rnx2rtkp
 
 from djippk import __version__, events, geotag, images, qc
-from djippk.config import DEFAULT_CONFIG, read_base_position
-from djippk.flight import Flight, find_flights
-from djippk.mrk import read_mrk
-from djippk.pos import read_trajectory
+from djippk.config import DEFAULT_CONFIG
+from djippk.io import Flight, find_flights, read_base_position, read_mrk, read_trajectory
 
 
 def _key_value(s: str) -> tuple[str, str]:
@@ -28,22 +24,14 @@ def _rtk_config(
 ) -> RtkConfig:
     config = RtkConfig.from_file(a.conf, DEFAULT_CONFIG) if a.conf else DEFAULT_CONFIG
     if a.base_pos_file:
-        lat, lon, h = read_base_position(a.base_pos_file)
+        config = config.with_base_llh(*read_base_position(a.base_pos_file), a.base_ant_h)
     elif a.base_pos:
-        lat, lon, h = a.base_pos
-    else:
+        config = config.with_base_llh(*a.base_pos, a.base_ant_h)
+    if not config.has_base_position:
         parser.error(
-            "base position missing: use --base-pos LAT LON H or --base-pos-file CSV"
+            "base position missing: use --base-pos LAT LON H, --base-pos-file CSV or a --conf with it"
         )
-    return config.with_base_llh(lat, lon, h, a.base_ant_h).with_options(dict(a.opt))
-
-
-def _check_coverage(flight: Flight, base_span: tuple) -> str | None:
-    """Message if the rover observations are not inside the base time span, else None."""
-    start, end = rinex_span(flight.obs)
-    if start < base_span[0] or end > base_span[1]:
-        return f"rover {start} - {end} GPST is not inside the base {base_span[0]} - {base_span[1]}"
-    return None
+    return config.with_options(dict(a.opt))
 
 
 def process_flight(
@@ -64,15 +52,15 @@ def process_flight(
     events_path = Path(f"{flight.stem}_events.pos")
     mrk = read_mrk(flight.mrk) if flight.mrk else None
     if mrk is None:
-        events.write_empty_events(events_path, read_header(pos_path))
+        events_path.write_text("\n".join(read_header(pos_path)) + "\n")
         msg += "; no MRK: empty events file"
     else:
         ev, skipped = events.build_events(pos, mrk)
         events.write_events(events_path, ev, read_header(pos_path), pos_path.name)
-        nonfix = ev.loc[ev["Q"] != 1, "n"].tolist()
         msg += f"; {len(ev)} events"
         if skipped:
             msg += f", WARNING photos outside the trajectory: {skipped}"
+        nonfix = ev.loc[ev["Q"] != 1, "n"].tolist()
         if nonfix:
             msg += f", non-fixed photos: {nonfix}"
     if do_qc:
@@ -87,10 +75,15 @@ def cmd_process(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     failed = 0
     for fl in flights:
         print(f"== {fl.obs.name}")
+        start, end = rinex_span(fl.obs)
+        if start < base_span[0] or end > base_span[1]:
+            print(
+                f"  FAILED: rover {start} - {end} GPST is not inside the base {base_span[0]} - {base_span[1]}",
+                file=sys.stderr,
+            )
+            failed += 1
+            continue
         try:
-            problem = _check_coverage(fl, base_span)
-            if problem:
-                raise RuntimeError(problem)
             print("  " + process_flight(fl, a.base, a.base_nav, config, a.exe, a.qc))
         except (RuntimeError, ValueError, FileNotFoundError) as e:
             print(f"  FAILED: {e}", file=sys.stderr)
@@ -126,8 +119,8 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
         parser.error("use either --exif-out or --overwrite, not both")
     if not a.images.is_dir():
         raise ValueError(f"{a.images} is not a folder; usage: djippk geotag <events.pos> <image folder>")
-    a.events = _events_file(a.events)
-    ev = read_trajectory(a.events)
+    events_file = _events_file(a.events)
+    ev = read_trajectory(events_file)
     img = images.list_images(a.images, a.suffix)
     exposure = images.exposure_times(list(img["path"])) if len(img) else None
     problems = images.check_match(img, ev, exposure)
@@ -143,7 +136,7 @@ def cmd_geotag(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     )
     ref = geotag.build_reference(img, ev, a.min_acc, not a.no_ext)
     out = a.out or Path(a.images) / (
-        Path(a.events).stem.removesuffix("_events") + "_metashape.csv"
+        events_file.stem.removesuffix("_events") + "_metashape.csv"
     )
     geotag.write_reference(ref, out)
     print(f"{len(ref)} images matched by {how}\nwritten: {out}")
@@ -299,7 +292,3 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (FileNotFoundError, ValueError, RuntimeError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-
-
-if __name__ == "__main__":
-    sys.exit(main())

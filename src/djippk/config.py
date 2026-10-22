@@ -1,10 +1,5 @@
-"""Default RTKLIB configuration for kinematic PPK of a drone, and the base position file."""
+"""Default RTKLIB configuration for kinematic PPK of a drone."""
 
-from __future__ import annotations
-
-from pathlib import Path
-
-import pandas as pd
 from gnsskit import RtkConfig
 
 # Kinematic, dual-frequency, short-baseline (GPS+Galileo+BeiDou, GLONASS AR off), forward+backward.
@@ -43,11 +38,3 @@ DEFAULT_CONFIG = RtkConfig.empty().updated(
     geoid="internal",
 )
 
-
-def read_base_position(path: Path) -> tuple[float, float, float]:
-    """Base (lat, lon, h) from a CSV with a header and one row: lat [deg], lon [deg], h [m]."""
-    df = pd.read_csv(path)
-    if len(df) < 1 or df.shape[1] < 3:
-        raise ValueError(f"{path}: expected a header and one row with lat, lon, height")
-    lat, lon, h = df.iloc[0, :3].astype(float)
-    return float(lat), float(lon), float(h)

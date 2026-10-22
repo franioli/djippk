@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from gnsskit.geodesy import enu_diff
+from gnsskit.trajectory import interpolate
 
 Q_NAMES = {1: "fix", 2: "float", 5: "single"}
 
@@ -40,13 +41,8 @@ def pos_summary(pos: pd.DataFrame) -> list[str]:
 
 def mrk_compare(pos: pd.DataFrame, mrk: pd.DataFrame) -> tuple[list[str], pd.DataFrame]:
     """PPK minus MRK (DJI) position at each photo, in E/N/U metres; offsets are not removed."""
-    t = pos["gps_s"].to_numpy()
-    ev = pd.DataFrame({"n": mrk["n"]})
-    for c in ("lat", "lon", "h"):
-        ev[c] = np.interp(mrk["gps_s"], t, pos[c])
-    ev["Q"] = pos["Q"].to_numpy()[
-        np.searchsorted(t, mrk["gps_s"]).clip(1, len(pos) - 1)
-    ]
+    ev = interpolate(pos, mrk["gps_s"].to_numpy())
+    ev.insert(0, "n", mrk["n"].to_numpy())
     ev[["dE", "dN", "dU"]] = enu_diff(
         ev["lat"], ev["lon"], ev["h"], mrk["lat"], mrk["lon"], mrk["h"]
     )
