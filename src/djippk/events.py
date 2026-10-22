@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from gnsskit.geodesy import radii
 from gnsskit.trajectory import interpolate
 
@@ -65,4 +64,3 @@ def write_events(path: Path, ev: pd.DataFrame, header: list[str], source: str) -
     lines += [format_line(r) for _, r in ev.iterrows()]
     path.write_text("\n".join(lines) + "\n")
     return path
-

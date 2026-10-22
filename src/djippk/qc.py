@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from gnsskit.geodesy import enu_diff
 from gnsskit.trajectory import interpolate
 

@@ -37,4 +37,3 @@ DEFAULT_CONFIG = RtkConfig.empty().updated(
     height="ellipsoidal",
     geoid="internal",
 )
-

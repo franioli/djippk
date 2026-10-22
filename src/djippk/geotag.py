@@ -56,7 +56,9 @@ def exiftool_args(path: Path, r: pd.Series) -> list[str]:
     ]
 
 
-def write_exif(paths: list[Path], ev: pd.DataFrame, out_dir: Path | None = None) -> list[Path]:
+def write_exif(
+    paths: list[Path], ev: pd.DataFrame, out_dir: Path | None = None
+) -> list[Path]:
     """Write the event positions into images with one exiftool run, and return the tagged files.
 
     Tags: EXIF GPS latitude, longitude, altitude (ellipsoidal height) and the DJI XMP position and RTK std tags,
@@ -72,7 +74,9 @@ def write_exif(paths: list[Path], ev: pd.DataFrame, out_dir: Path | None = None)
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)
         if out_dir.resolve() == paths[0].resolve().parent:
-            raise ValueError(f"{out_dir} is the image folder: choose another folder, or overwrite the images explicitly")
+            raise ValueError(
+                f"{out_dir} is the image folder: choose another folder, or overwrite the images explicitly"
+            )
         targets = [Path(shutil.copy2(p, out_dir / p.name)) for p in paths]
     else:
         targets = list(paths)
