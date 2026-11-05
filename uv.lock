@@ -486,8 +486,8 @@ wheels = [
 
 [[package]]
 name = "gnsskit"
-version = "0.2.0"
-source = { git = "https://github.com/franioli/gnsskit?rev=v0.3.0#75cb0ed3c38df699bd5aa8f88f73487abf704a15" }
+version = "0.3.0"
+source = { git = "https://github.com/franioli/gnsskit?rev=v0.3.0#3601d4f0eff4b5c7a59100c626c126b45d1414b7" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
