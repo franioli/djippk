@@ -3,7 +3,7 @@ from pathlib import Path
 
 from gnsskit import RtkConfig
 
-from djippk.cli import main
+from djippk.__main__ import main
 from djippk.config import DEFAULT_CONFIG
 from djippk.io import read_base_position, read_trajectory
 

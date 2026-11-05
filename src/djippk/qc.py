@@ -4,8 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from gnsskit.geodesy import enu_diff
-from gnsskit.trajectory import interpolate
+from gnsskit import enu_diff, interpolate
 
 Q_NAMES = {1: "fix", 2: "float", 5: "single"}
 

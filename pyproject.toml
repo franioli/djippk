@@ -18,14 +18,14 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "pandas>=2",
-    "gnsskit @ git+https://github.com/franioli/gnsskit@v0.2.0",
+    "gnsskit @ git+https://github.com/franioli/gnsskit@v0.3.0",
 ]
 
 [project.optional-dependencies]
 plots = ["matplotlib"]
 
 [project.scripts]
-djippk = "djippk.cli:main"
+djippk = "djippk.__main__:main"
 
 [dependency-groups]
 dev = ["pytest", "pillow", "matplotlib"]

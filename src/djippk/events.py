@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from gnsskit.geodesy import radii
-from gnsskit.trajectory import interpolate
+from gnsskit import interpolate
+from gnsskit.refsys import radii
 
 
 def apply_offsets(

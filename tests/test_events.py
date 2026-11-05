@@ -1,8 +1,7 @@
 import pandas as pd
 import pytest
 
-from gnsskit import read_header
-from gnsskit.geodesy import enu_diff
+from gnsskit import enu_diff, read_header
 
 from djippk import events
 from djippk.io import read_mrk, read_trajectory
